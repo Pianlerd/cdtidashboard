@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ยืนยันคีย์เพื่อเข้าสู่รายงาน</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* กำหนดฟอนต์และสไตล์หลัก */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            min-height: 100vh;
+        }
+        .container-card {
+            max-width: 450px;
+            box-shadow: 0 10px 25px rgba(49, 46, 129, 0.1);
+        }
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #ffffff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+
+    <!-- Card Container -->
+    <div id="app-container" class="container-card w-full bg-white p-8 md:p-10 rounded-xl transition-all duration-300">
+        
+        <!-- Welcome Area (Hidden by Default) -->
+        <div id="welcome-area" class="hidden text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto text-green-500 mb-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+            </svg>
+            <h1 class="text-3xl font-bold text-green-700 mb-4">ยินดีต้อนรับ!</h1>
+            <p class="text-gray-600 mb-6">การยืนยันคีย์สำเร็จแล้ว ใช้อีเมลล์นี้ในการเข้าสู่ระบบ <br>User: it.cdv@ms.cdti.ac.th<br>
+Password: P@ssword</p>
+            
+            <a id="report-link" href="#" target="_blank"
+               class="w-full inline-flex justify-center items-center px-4 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-lg hover:bg-indigo-700 transition duration-150 ease-in-out focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-50 active:bg-indigo-800">
+                คลิกเพื่อเข้าสู่รายงาน Power BI
+            </a>
+
+            <div class="mt-8 text-left border-t pt-4 border-gray-100">
+                <p class="text-sm font-semibold text-gray-700 mb-2">ลิงก์เต็มสำหรับคัดลอก:</p>
+                <!-- แสดงลิงก์เต็ม -->
+                <p id="full-link-display" class="break-all text-xs p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 select-all"></p>
+                <button onclick="copyToClipboard()" class="mt-2 text-xs text-indigo-500 hover:text-indigo-700 font-medium transition duration-150">
+                    คัดลอกลิงก์
+                </button>
+            </div>
+        </div>
+
+        <!-- Verification Area (Default Display) -->
+        <div id="verification-area">
+            <h1 class="text-3xl font-bold text-center text-indigo-700 mb-2">ยืนยันคีย์เพื่อเข้าถึงรายงาน</h1>
+            <p class="text-center text-gray-500 mb-8 text-sm">กรุณากรอกคีย์ที่กำหนดเพื่อยืนยันสิทธิ์การเข้าถึง</p>
+
+            <div class="space-y-4">
+                <input type="password" id="key-input" placeholder="กรุณากรอกคีย์ลับ (Secret Key)"
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-base shadow-sm">
+                
+                <button id="verify-btn" onclick="handleVerification()"
+                        class="w-full flex justify-center items-center px-4 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-150 ease-in-out focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-50 active:bg-indigo-800">
+                    ยืนยันคีย์
+                </button>
+            </div>
+
+            <!-- Message Box for Feedback -->
+            <div id="message-box" class="mt-4 p-3 rounded-lg text-sm transition-all duration-300 hidden"></div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- การตั้งค่าหลัก ---
+        const POWER_BI_LINK = "https://app.powerbi.com/reportEmbed?reportId=c5bc21e8-737d-49ec-be3b-85d66c931bbf&autoAuth=true&ctid=dbf170fd-2115-452e-8c9d-43c7495ef306";
+        const SECRET_KEY = "Cdti"; // คีย์ลับที่กำหนด
+        
+        // Element References
+        const verificationArea = document.getElementById('verification-area');
+        const welcomeArea = document.getElementById('welcome-area');
+        const keyInput = document.getElementById('key-input');
+        const verifyButton = document.getElementById('verify-btn');
+        const messageBox = document.getElementById('message-box');
+        const reportLink = document.getElementById('report-link');
+        const fullLinkDisplay = document.getElementById('full-link-display');
+
+        // กำหนดลิงก์ทันทีที่โหลดสคริปต์
+        reportLink.href = POWER_BI_LINK;
+        fullLinkDisplay.textContent = POWER_BI_LINK;
+
+        /**
+         * @function copyToClipboard
+         * @description คัดลอกลิงก์เต็มไปยังคลิปบอร์ด
+         */
+        function copyToClipboard() {
+            const tempInput = document.createElement('textarea');
+            tempInput.value = POWER_BI_LINK;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            // ใช้ document.execCommand('copy') เนื่องจาก navigator.clipboard อาจไม่ทำงานใน iFrame
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showMessage("คัดลอกลิงก์สำเร็จแล้ว!", 'success');
+                } else {
+                    throw new Error('Fallback copy failed');
+                }
+            } catch (err) {
+                showMessage("ไม่สามารถคัดลอกลิงก์อัตโนมัติได้ กรุณาคัดลอกด้วยตนเอง", 'warning');
+                console.error('Fallback: Could not copy text', err);
+            }
+            document.body.removeChild(tempInput);
+        }
+
+        /**
+         * @function showMessage
+         * @description แสดงข้อความแจ้งเตือนหรือข้อผิดพลาด
+         */
+        function showMessage(message, type = 'error') {
+            messageBox.textContent = message;
+            messageBox.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700');
+            
+            if (type === 'success') {
+                messageBox.classList.add('bg-green-100', 'text-green-700');
+            } else if (type === 'warning') {
+                messageBox.classList.add('bg-yellow-100', 'text-yellow-700');
+            } else {
+                messageBox.classList.add('bg-red-100', 'text-red-700');
+            }
+            messageBox.classList.remove('hidden');
+        }
+
+        /**
+         * @function showWelcomePage
+         * @description เปลี่ยนไปแสดงหน้ายินดีต้อนรับและลิงก์
+         */
+        function showWelcomePage() {
+            // ซ่อนหน้ายืนยัน
+            verificationArea.classList.add('hidden');
+            // แสดงหน้ายินดีต้อนรับ
+            welcomeArea.classList.remove('hidden');
+            // ล้างข้อความแจ้งเตือนที่อาจค้างอยู่
+            messageBox.classList.add('hidden');
+        }
+
+        /**
+         * @function handleVerification
+         * @description จัดการการตรวจสอบคีย์
+         */
+        function handleVerification() {
+            const enteredKey = keyInput.value.trim();
+            messageBox.classList.add('hidden');
+
+            // 1. ตรวจสอบคีย์
+            if (enteredKey === SECRET_KEY) {
+                // 2. คีย์ถูกต้อง: แสดงหน้าต้อนรับ
+                showMessage("คีย์ถูกต้อง! กำลังเข้าสู่หน้าต้อนรับ...", 'success');
+                // ใช้ setTimeout เพื่อให้ผู้ใช้เห็นข้อความสำเร็จก่อนเปลี่ยนหน้า
+                setTimeout(() => {
+                    showWelcomePage(); 
+                }, 800);
+            } else {
+                // 3. คีย์ไม่ถูกต้อง: แสดงข้อผิดพลาด
+                showMessage("คีย์ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง", 'error');
+                keyInput.value = ''; // ล้างช่องกรอกคีย์
+                keyInput.focus();
+            }
+        }
+    </script>
+</body>
+</html>
